@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ProjectStage {
+  booked
+  researched
+  call_complete
+  writing_analyzed
+  draft_ready
+  in_review
+  approved
+  scheduled
+  published
+  complete
+}
+
+enum GiftStatus {
+  not_started
+  ordered
+  shipped
+  delivered
+}
+
+enum ResearchType {
+  company_brief
+  person_brief
+  call_questions
+}
+
+enum WritingSampleSource {
+  linkedin_post
+  blog
+  newsletter
+  medium
+  substack
+  other
+}
+
+enum PostDraftStatus {
+  draft
+  shared
+  customer_editing
+  approved
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  hashedPassword String
+  name           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Project {
+  id                 String       @id @default(uuid())
+  companyName        String
+  companyWebsite     String?
+  companyDescription String?
+  contactName        String
+  contactEmail       String?
+  contactTitle       String?
+  contactLinkedinUrl String?
+  contactBio         String?
+  posterName         String?
+  posterLinkedinUrl  String?
+
+  stage      ProjectStage @default(booked)
+
+  giftStatus         GiftStatus @default(not_started)
+  giftDescription    String?
+  giftTrackingNumber String?
+  giftShippingAddress String?
+  giftNotes          String?
+
+  callDate       DateTime?
+  targetPostDate DateTime?
+  actualPostDate DateTime?
+
+  shareToken String @unique @default(uuid())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  research       Research[]
+  transcripts    Transcript[]
+  writingSamples WritingSample[]
+  writingAnalyses WritingAnalysis[]
+  postDrafts     PostDraft[]
+  activityLogs   ActivityLog[]
+}
+
+model Research {
+  id        String       @id @default(uuid())
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type      ResearchType
+  content   String
+  createdAt DateTime     @default(now())
+}
+
+model Transcript {
+  id                  String  @id @default(uuid())
+  projectId           String
+  project             Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  firefliesMeetingId  String?
+  rawTranscript       String
+  callSummary         String?
+  identifiedPoster    String?
+  createdAt           DateTime @default(now())
+}
+
+model WritingSample {
+  id         String              @id @default(uuid())
+  projectId  String
+  project    Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceUrl  String?
+  sourceType WritingSampleSource
+  content    String
+  belongsTo  String
+  createdAt  DateTime            @default(now())
+}
+
+model WritingAnalysis {
+  id          String  @id @default(uuid())
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subjectName String
+  analysis    String
+  createdAt   DateTime @default(now())
+}
+
+model PostDraft {
+  id                   String          @id @default(uuid())
+  projectId            String
+  project              Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version              Int             @default(1)
+  content              String
+  quoteOptions         Json?
+  selectedQuoteId      String?
+  status               PostDraftStatus @default(draft)
+  customerEditedContent String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  comments             DraftComment[]
+}
+
+model DraftComment {
+  id        String   @id @default(uuid())
+  draftId   String
+  draft     PostDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  author    String   // name of commenter (customer or internal)
+  content   String
+  resolved  Boolean  @default(false)
+  highlightedText String? // the text they highlighted when commenting
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}
