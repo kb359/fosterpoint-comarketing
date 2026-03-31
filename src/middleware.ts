@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 
-export async function middleware(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const publicPaths = ["/login", "/share", "/api/webhooks", "/api/share", "/api/auth", "/api/seed"];
@@ -9,14 +8,12 @@ export async function middleware(req: NextRequest) {
 
   if (isPublic) return NextResponse.next();
 
-  const isSecure = req.nextUrl.protocol === "https:";
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    cookieName: isSecure ? "__Secure-authjs.session-token" : "authjs.session-token",
-  });
+  // NextAuth v5 sets either the secure or non-secure cookie depending on protocol
+  const hasSession =
+    req.cookies.has("__Secure-authjs.session-token") ||
+    req.cookies.has("authjs.session-token");
 
-  if (!token) {
+  if (!hasSession) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
 
