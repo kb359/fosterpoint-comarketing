@@ -9,7 +9,12 @@ export async function middleware(req: NextRequest) {
 
   if (isPublic) return NextResponse.next();
 
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const isSecure = req.nextUrl.protocol === "https:";
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    cookieName: isSecure ? "__Secure-authjs.session-token" : "authjs.session-token",
+  });
 
   if (!token) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
