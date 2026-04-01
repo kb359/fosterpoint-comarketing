@@ -34,8 +34,17 @@ async function pollForOutput(
       const data = await pbRequest(
         `/agents/fetch-output?id=${agentId}&containerId=${containerId}`
       );
-      if (data.status === "finished" || data.status === "error") {
-        const output = data.output ?? data.resultObject ?? [];
+      // v2: exitMessage tells us the run status; resultObject holds the data
+      const exitMessage = data.exitMessage ?? data.data?.exitMessage;
+      const isDone = exitMessage === "finished" || exitMessage === "killed" ||
+        exitMessage === "global timeout" || exitMessage === "agent timeout";
+      if (isDone) {
+        const raw = data.resultObject ?? data.data?.resultObject ?? [];
+        let output = raw;
+        // resultObject may be a JSON string
+        if (typeof raw === "string") {
+          try { output = JSON.parse(raw); } catch { output = []; }
+        }
         if (Array.isArray(output)) {
           return output
             .filter((p: Record<string, unknown>) => p.postContent || p.text)
@@ -68,12 +77,13 @@ export async function scrapeLinkedInPosts(
       method: "POST",
       body: JSON.stringify({
         id: agentId,
-        argument: {
+        // argument must be a JSON string, not an object
+        argument: JSON.stringify({
           profileUrls: profileUrl,
           activitiesToScrape: ["Post"],
           numberMaxOfPosts: 50,
           numberOfLinesPerLaunch: 1,
-        },
+        }),
       }),
     });
 
