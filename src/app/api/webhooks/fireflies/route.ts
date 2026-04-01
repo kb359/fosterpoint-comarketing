@@ -277,7 +277,7 @@ async function runPostCallPipeline(projectId: string, meetingId: string) {
       data: {
         projectId,
         action: "post_call_pipeline_complete",
-        details: `Draft ready for ${project.companyName}. Poster: ${identifiedPoster}. LinkedIn scraped: ${writingSamples !== [transcriptData.rawTranscript]}`,
+        details: `Draft ready for ${project.companyName}. Poster: ${identifiedPoster}. LinkedIn scraped: ${writingSamples[0] !== transcriptData.rawTranscript}`,
       },
     });
 

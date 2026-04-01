@@ -27,12 +27,12 @@ Provide:
    - Their experience with Oneleet specifically
    - Outcomes and how they feel about it now
 
-2. **IDENTIFIED POSTER**: Based on the conversation, who should be the person posting on LinkedIn? Consider:
-   - Who had the strongest personal story
-   - Who is most senior / has the most LinkedIn presence
-   - Who expressed the most authentic emotions about the experience
+2. **IDENTIFIED POSTER**: Who will actually post this on LinkedIn?
+   - FIRST: Look for any explicit statement in the transcript about who will post (e.g. "it'll come from X's account", "X will post this", "reach out to X"). That person is the poster — full stop.
+   - If no explicit statement, default to the most senior person / founder mentioned as active on LinkedIn.
+   - NEVER pick someone who said they are inactive on LinkedIn or who deferred to someone else.
 
-   Just provide the person's name.
+   Just provide the person's first and last name.
 
 Format your response as:
 
