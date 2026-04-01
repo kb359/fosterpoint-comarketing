@@ -19,7 +19,14 @@ export async function findLinkedInUrl(
       messages: [
         {
           role: "user",
-          content: `Search for the LinkedIn profile URL for "${name}" who works at "${company}". I need the exact LinkedIn URL in the format https://linkedin.com/in/username. Return ONLY the URL, nothing else. If you cannot find a confirmed match, return the text "not_found".`,
+          content: `Find the LinkedIn profile URL for a person named "${name}" who is a founder or executive at "${company}".
+
+Try multiple searches if needed:
+- site:linkedin.com/in "${name}" "${company}"
+- "${name}" "${company}" founder linkedin
+- "${company}" founder site:linkedin.com
+
+Return ONLY the LinkedIn URL in format https://linkedin.com/in/username. If you find multiple candidates, pick the most likely match. If truly not found after trying, return "not_found".`,
         },
       ],
     });
