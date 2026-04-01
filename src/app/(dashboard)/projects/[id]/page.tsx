@@ -75,6 +75,8 @@ interface PostDraft {
   id: string;
   version: number;
   content: string;
+  hookOptions: { id: string; text: string }[] | null;
+  selectedHookId: string | null;
   quoteOptions: { id: string; text: string }[] | null;
   selectedQuoteId: string | null;
   status: string;
@@ -88,6 +90,15 @@ interface ActivityLog {
   action: string;
   details: string | null;
   createdAt: string;
+}
+
+interface GiftIdea {
+  title: string;
+  description: string;
+  why: string;
+  where: string;
+  estimatedCost: string;
+  customization: string;
 }
 
 interface Project {
@@ -108,6 +119,7 @@ interface Project {
   giftTrackingNumber: string | null;
   giftShippingAddress: string | null;
   giftNotes: string | null;
+  giftIdeas: GiftIdea[] | null;
   callDate: string | null;
   targetPostDate: string | null;
   actualPostDate: string | null;
@@ -166,6 +178,12 @@ export default function ProjectDetailPage() {
   const [sharingDraft, setSharingDraft] = useState(false);
   const [savingGift, setSavingGift] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  /* hook selection per draft id */
+  const [selectedHookIds, setSelectedHookIds] = useState<Record<string, string>>({});
+
+  /* draft revision prompt */
+  const [draftGuidance, setDraftGuidance] = useState("");
 
   /* expanded research cards */
   const [expandedResearch, setExpandedResearch] = useState<Set<string>>(new Set());
@@ -462,14 +480,10 @@ export default function ProjectDetailPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview">
-        <TabsList className="flex-wrap">
+        <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="research">Research</TabsTrigger>
-          <TabsTrigger value="transcript">Transcript</TabsTrigger>
-          <TabsTrigger value="writing">Writing</TabsTrigger>
           <TabsTrigger value="draft">Draft</TabsTrigger>
           <TabsTrigger value="gift">Gift</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         {/* ==================== OVERVIEW ==================== */}
@@ -620,255 +634,37 @@ export default function ProjectDetailPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* ==================== RESEARCH ==================== */}
-        <TabsContent value="research">
-          <div className="space-y-4">
+          {/* Research section inline in Overview */}
+          <div className="space-y-4 mt-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Research</h2>
-              <Button onClick={handleGenerateResearch} disabled={generatingResearch}>
-                {generatingResearch ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="mr-2 h-4 w-4" />
-                )}
-                Generate Research
+              <Button onClick={handleGenerateResearch} disabled={generatingResearch} variant="outline" size="sm">
+                {generatingResearch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                {project.research.length > 0 ? "Regenerate" : "Generate Research"}
               </Button>
             </div>
-
-            {project.research.length === 0 && !generatingResearch && (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No research yet. Click &quot;Generate Research&quot; to get started.
-                </CardContent>
-              </Card>
-            )}
-
             {generatingResearch && (
-              <Card>
-                <CardContent className="flex items-center justify-center gap-3 py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="text-muted-foreground">Generating research...</span>
-                </CardContent>
-              </Card>
+              <Card><CardContent className="flex items-center justify-center gap-3 py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /><span className="text-muted-foreground">Generating research...</span></CardContent></Card>
             )}
-
             {project.research.map((r) => {
               const isExpanded = expandedResearch.has(r.id);
               return (
                 <Card key={r.id}>
-                  <CardHeader
-                    className="cursor-pointer"
-                    onClick={() =>
-                      setExpandedResearch((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(r.id)) next.delete(r.id);
-                        else next.add(r.id);
-                        return next;
-                      })
-                    }
-                  >
+                  <CardHeader className="cursor-pointer" onClick={() => setExpandedResearch((prev) => { const next = new Set(prev); if (next.has(r.id)) next.delete(r.id); else next.add(r.id); return next; })}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        <CardTitle className="text-base">
-                          {RESEARCH_LABELS[r.type] ?? r.type}
-                        </CardTitle>
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        <CardTitle className="text-base">{RESEARCH_LABELS[r.type] ?? r.type}</CardTitle>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(r.createdAt)}
-                      </span>
                     </div>
                   </CardHeader>
-                  {isExpanded && (
-                    <CardContent>
-                      <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">
-                        {r.content}
-                      </div>
-                    </CardContent>
-                  )}
+                  {isExpanded && <CardContent><div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">{r.content}</div></CardContent>}
                 </Card>
               );
             })}
-          </div>
-        </TabsContent>
-
-        {/* ==================== TRANSCRIPT ==================== */}
-        <TabsContent value="transcript">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Transcript</h2>
-              <Button onClick={handleImportTranscript} disabled={importingTranscript}>
-                {importingTranscript ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <FileText className="mr-2 h-4 w-4" />
-                )}
-                Import Transcript
-              </Button>
-            </div>
-
-            {!latestTranscript && !importingTranscript && (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No transcript imported yet. Click &quot;Import Transcript&quot; to fetch it.
-                </CardContent>
-              </Card>
-            )}
-
-            {importingTranscript && (
-              <Card>
-                <CardContent className="flex items-center justify-center gap-3 py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="text-muted-foreground">Importing transcript...</span>
-                </CardContent>
-              </Card>
-            )}
-
-            {latestTranscript && (
-              <>
-                {latestTranscript.identifiedPoster && (
-                  <Card>
-                    <CardContent className="py-4">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Identified Poster:{" "}
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {latestTranscript.identifiedPoster}
-                      </span>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {latestTranscript.callSummary && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">AI Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">
-                        {latestTranscript.callSummary}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Raw Transcript</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-96 overflow-y-auto rounded-md border bg-muted/30 p-4">
-                      <pre className="whitespace-pre-wrap text-xs leading-relaxed">
-                        {latestTranscript.rawTranscript}
-                      </pre>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* ==================== WRITING ==================== */}
-        <TabsContent value="writing">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Writing Analysis</h2>
-              <Button onClick={handleAnalyzeWriting} disabled={analyzingWriting}>
-                {analyzingWriting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="mr-2 h-4 w-4" />
-                )}
-                Analyze Writing
-              </Button>
-            </div>
-
-            {/* Writing Samples */}
-            {project.writingSamples.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Samples ({project.writingSamples.length})
-                </h3>
-                {project.writingSamples.map((ws) => (
-                  <Card key={ws.id}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">
-                            {SOURCE_LABELS[ws.sourceType] ?? ws.sourceType}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">{ws.belongsTo}</span>
-                        </div>
-                        {ws.sourceUrl && (
-                          <a
-                            href={ws.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                          >
-                            Source <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm line-clamp-4 whitespace-pre-wrap">{ws.content}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* Analysis */}
-            {project.writingAnalyses.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Analysis
-                </h3>
-                {project.writingAnalyses.map((wa) => (
-                  <Card key={wa.id}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{wa.subjectName}</CardTitle>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(wa.createdAt)}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">
-                        {wa.analysis}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {project.writingSamples.length === 0 &&
-              project.writingAnalyses.length === 0 &&
-              !analyzingWriting && (
-                <Card>
-                  <CardContent className="py-12 text-center text-muted-foreground">
-                    No writing samples or analysis yet. Click &quot;Analyze Writing&quot; to begin.
-                  </CardContent>
-                </Card>
-              )}
-
-            {analyzingWriting && (
-              <Card>
-                <CardContent className="flex items-center justify-center gap-3 py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="text-muted-foreground">Analyzing writing style...</span>
-                </CardContent>
-              </Card>
+            {project.research.length === 0 && !generatingResearch && (
+              <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">No research yet.</CardContent></Card>
             )}
           </div>
         </TabsContent>
@@ -943,7 +739,59 @@ export default function ProjectDetailPage() {
 
             {latestDraft && (
               <>
-                {/* Current draft */}
+                {/* Hook options */}
+                {latestDraft.hookOptions &&
+                  Array.isArray(latestDraft.hookOptions) &&
+                  latestDraft.hookOptions.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                        Hook Options — pick one
+                      </h3>
+                      <div className="space-y-2">
+                        {(latestDraft.hookOptions as { id: string; text: string }[]).map(
+                          (hook, i) => {
+                            const activeId = selectedHookIds[latestDraft.id] ?? latestDraft.hookOptions![0].id;
+                            const isActive = activeId === hook.id;
+                            // First line of each hook variant as the preview
+                            const hookPreview = hook.text.split("\n")[0];
+                            return (
+                              <Card
+                                key={hook.id}
+                                className={cn(
+                                  "cursor-pointer transition-colors",
+                                  isActive
+                                    ? "border-primary ring-1 ring-primary"
+                                    : "hover:border-muted-foreground/30"
+                                )}
+                                onClick={() =>
+                                  setSelectedHookIds((prev) => ({
+                                    ...prev,
+                                    [latestDraft.id]: hook.id,
+                                  }))
+                                }
+                              >
+                                <CardContent className="py-3 flex items-start gap-3">
+                                  <div
+                                    className={cn(
+                                      "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold",
+                                      isActive
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-muted-foreground/30 text-muted-foreground"
+                                    )}
+                                  >
+                                    {i + 1}
+                                  </div>
+                                  <p className="text-sm">{hookPreview}</p>
+                                </CardContent>
+                              </Card>
+                            );
+                          }
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Current draft — shows selected hook variant */}
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -955,7 +803,51 @@ export default function ProjectDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="whitespace-pre-wrap rounded-md border bg-muted/30 p-4 text-sm leading-relaxed">
-                      {latestDraft.content}
+                      {latestDraft.hookOptions && Array.isArray(latestDraft.hookOptions) && latestDraft.hookOptions.length > 0
+                        ? (latestDraft.hookOptions as { id: string; text: string }[]).find(
+                            (h) => h.id === (selectedHookIds[latestDraft.id] ?? latestDraft.hookOptions![0].id)
+                          )?.text ?? latestDraft.content
+                        : latestDraft.content}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Revision prompt */}
+                <Card>
+                  <CardContent className="pt-4 space-y-3">
+                    <Textarea
+                      value={draftGuidance}
+                      onChange={(e) => setDraftGuidance(e.target.value)}
+                      placeholder="Make the hook punchier... more vulnerable, less polished... open with the customer story instead... try a different angle..."
+                      rows={2}
+                      className="resize-none text-sm"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          setGeneratingDraft(true);
+                          try {
+                            await fetch(`/api/projects/${projectId}/draft`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ guidance: draftGuidance }),
+                            });
+                            setDraftGuidance("");
+                            await fetchProject();
+                          } finally {
+                            setGeneratingDraft(false);
+                          }
+                        }}
+                        disabled={generatingDraft || !draftGuidance.trim()}
+                      >
+                        {generatingDraft ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="mr-2 h-4 w-4" />
+                        )}
+                        Take Another Pass
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1041,6 +933,25 @@ export default function ProjectDetailPage() {
 
         {/* ==================== GIFT ==================== */}
         <TabsContent value="gift">
+          {/* AI Gift Ideas */}
+          {project.giftIdeas && Array.isArray(project.giftIdeas) && (project.giftIdeas as GiftIdea[]).length > 0 && (
+            <div className="space-y-3 mb-6">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">AI Gift Ideas</h3>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(project.giftIdeas as GiftIdea[]).map((idea, i) => (
+                  <Card key={i} className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setGiftForm(f => ({ ...f, giftDescription: `${idea.title}: ${idea.description}\n\nOrder from: ${idea.where}\nCustomize: ${idea.customization}\nEstimated cost: ${idea.estimatedCost}` }))}>
+                    <CardContent className="p-4 space-y-1.5">
+                      <div className="font-medium text-sm">{idea.title}</div>
+                      <div className="text-xs text-muted-foreground">{idea.estimatedCost}</div>
+                      <div className="text-xs text-muted-foreground line-clamp-2">{idea.why}</div>
+                      <div className="text-xs text-primary">{idea.where}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Click an idea to populate the gift description below.</p>
+            </div>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Gift Management</CardTitle>
@@ -1131,48 +1042,6 @@ export default function ProjectDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* ==================== ACTIVITY ==================== */}
-        <TabsContent value="activity">
-          <Card>
-            <CardHeader>
-              <CardTitle>Activity Log</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {project.activityLogs.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No activity recorded yet.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {project.activityLogs
-                    .sort(
-                      (a, b) =>
-                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                    )
-                    .map((log) => (
-                      <div
-                        key={log.id}
-                        className="flex items-start gap-3 border-b border-border pb-4 last:border-0 last:pb-0"
-                      >
-                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-medium">{log.action}</p>
-                          {log.details && (
-                            <p className="text-sm text-muted-foreground">{log.details}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(log.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );

@@ -153,6 +153,20 @@ export default function DashboardPage() {
     });
   }
 
+  // Update gift status inline from table
+  async function updateGiftStatus(projectId: string, newStatus: string) {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId ? { ...p, giftStatus: newStatus } : p
+      )
+    );
+    await fetch(`/api/projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ giftStatus: newStatus }),
+    });
+  }
+
   // Sort
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -288,6 +302,7 @@ export default function DashboardPage() {
           onSort={toggleSort}
           onRowClick={(id) => router.push(`/projects/${id}`)}
           onUpdateStage={updateStage}
+          onUpdateGiftStatus={updateGiftStatus}
         />
       ) : (
         <KanbanView projects={projects} onUpdateStage={updateStage} />
@@ -341,6 +356,7 @@ function TableView({
   onSort,
   onRowClick,
   onUpdateStage,
+  onUpdateGiftStatus,
 }: {
   projects: Project[];
   sortField: SortField;
@@ -348,6 +364,7 @@ function TableView({
   onSort: (f: SortField) => void;
   onRowClick: (id: string) => void;
   onUpdateStage: (id: string, stage: string) => void;
+  onUpdateGiftStatus: (id: string, status: string) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-border">
@@ -448,9 +465,19 @@ function TableView({
                   {formatDate(p.targetPostDate)}
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant="outline">
-                    {GIFT_STATUS_LABELS[p.giftStatus] ?? p.giftStatus}
-                  </Badge>
+                  <select
+                    value={p.giftStatus}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onUpdateGiftStatus(p.id, e.target.value);
+                    }}
+                    className="rounded-md border border-border bg-background px-2 py-0.5 text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    {Object.entries(GIFT_STATUS_LABELS).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
                 </td>
               </tr>
             ))

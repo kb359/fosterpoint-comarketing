@@ -52,6 +52,7 @@ export default function SharePage() {
   const [selectedText, setSelectedText] = useState("");
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: "Post content..." }),

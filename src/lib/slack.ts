@@ -1,3 +1,17 @@
+export async function sendSlackMessage(text: string, blocks?: object[]) {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) return;
+  const channelId = "C0AQ74D9U0L";
+  await fetch("https://slack.com/api/chat.postMessage", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ channel: channelId, text, blocks }),
+  });
+}
+
 export async function sendSlackBriefing(project: {
   companyName: string;
   companyDescription: string | null;

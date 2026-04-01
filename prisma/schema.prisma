@@ -79,6 +79,7 @@ model Project {
   giftTrackingNumber String?
   giftShippingAddress String?
   giftNotes          String?
+  giftIdeas          Json?
 
   callDate       DateTime?
   targetPostDate DateTime?
@@ -143,6 +144,8 @@ model PostDraft {
   project              Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   version              Int             @default(1)
   content              String
+  hookOptions          Json?
+  selectedHookId       String?
   quoteOptions         Json?
   selectedQuoteId      String?
   status               PostDraftStatus @default(draft)

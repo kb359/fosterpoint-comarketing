@@ -63,7 +63,8 @@ export async function POST(
         projectId: id,
         version: nextVersion,
         content: result.content,
-        quoteOptions: result.quoteOptions,
+        hookOptions: result.hookOptions as object[],
+        quoteOptions: result.quoteOptions as object[],
         status: "draft",
       },
     });
