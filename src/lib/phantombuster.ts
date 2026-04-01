@@ -22,46 +22,27 @@ async function pbRequest(path: string, options: RequestInit = {}): Promise<any> 
 
 const LINKEDIN_ACTIVITY_EXTRACTOR_ID = "4284604939628682";
 
-async function pollForOutput(
+async function pollUntilDone(
   agentId: string,
   containerId: string,
-  timeoutMs = 120_000
-): Promise<LinkedInPost[]> {
+  timeoutMs = 180_000
+): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 5000));
+    await new Promise((r) => setTimeout(r, 6000));
     try {
       const data = await pbRequest(
         `/agents/fetch-output?id=${agentId}&containerId=${containerId}`
       );
-      // v2: exitMessage tells us the run status; resultObject holds the data
-      const exitMessage = data.exitMessage ?? data.data?.exitMessage;
-      const isDone = exitMessage === "finished" || exitMessage === "killed" ||
-        exitMessage === "global timeout" || exitMessage === "agent timeout";
-      if (isDone) {
-        const raw = data.resultObject ?? data.data?.resultObject ?? [];
-        let output = raw;
-        // resultObject may be a JSON string
-        if (typeof raw === "string") {
-          try { output = JSON.parse(raw); } catch { output = []; }
-        }
-        if (Array.isArray(output)) {
-          return output
-            .filter((p: Record<string, unknown>) => p.postContent || p.text)
-            .slice(0, 50)
-            .map((p: Record<string, unknown>) => ({
-              text: String(p.postContent ?? p.text ?? ""),
-              url: String(p.postUrl ?? ""),
-              date: String(p.postDate ?? p.postTimestamp ?? ""),
-            }));
-        }
-        return [];
+      // v2 fetch-output uses status field + isAgentRunning
+      if (data.status === "finished" || data.isAgentRunning === false) {
+        return true;
       }
     } catch {
       // keep polling
     }
   }
-  return [];
+  return false;
 }
 
 export async function scrapeLinkedInPosts(
@@ -73,24 +54,50 @@ export async function scrapeLinkedInPosts(
   const agentId = LINKEDIN_ACTIVITY_EXTRACTOR_ID;
 
   try {
+    // Fetch agent info: get saved argument (has sessionCookie) + S3 folder paths
+    const agentInfo = await pbRequest(`/agents/fetch?id=${agentId}`);
+    let savedArg: Record<string, unknown> = {};
+    if (agentInfo.argument) {
+      try { savedArg = JSON.parse(agentInfo.argument); } catch { /* use empty */ }
+    }
+
+    // Merge: preserve sessionCookie + userAgent, override URL + count
+    const argument = JSON.stringify({
+      ...savedArg,
+      spreadsheetUrl: profileUrl,
+      numberMaxOfPosts: 50,
+      activitiesToScrape: ["Post"],
+    });
+
     const launch = await pbRequest("/agents/launch", {
       method: "POST",
-      body: JSON.stringify({
-        id: agentId,
-        // argument must be a JSON string, not an object
-        argument: JSON.stringify({
-          profileUrls: profileUrl,
-          activitiesToScrape: ["Post"],
-          numberMaxOfPosts: 50,
-          numberOfLinesPerLaunch: 1,
-        }),
-      }),
+      body: JSON.stringify({ id: agentId, argument }),
     });
 
     const containerId = launch.containerId ?? launch.data?.containerId;
     if (!containerId) return [];
 
-    return await pollForOutput(agentId, containerId);
+    const finished = await pollUntilDone(agentId, containerId);
+    if (!finished) return [];
+
+    // Results are saved to S3 — fetch them directly
+    const { orgS3Folder, s3Folder } = agentInfo;
+    const csvName = (savedArg.csvName as string) ?? "result";
+    const s3Url = `https://phantombuster.s3.amazonaws.com/${orgS3Folder}/${s3Folder}/${csvName}.json`;
+
+    const res = await fetch(s3Url);
+    if (!res.ok) return [];
+    const posts = await res.json();
+
+    if (!Array.isArray(posts)) return [];
+    return posts
+      .filter((p: Record<string, unknown>) => p.postContent || p.text)
+      .slice(0, 50)
+      .map((p: Record<string, unknown>) => ({
+        text: String(p.postContent ?? p.text ?? ""),
+        url: String(p.postUrl ?? ""),
+        date: String(p.postDate ?? p.postTimestamp ?? ""),
+      }));
   } catch (err) {
     console.error("PhantomBuster scrape error:", err);
     return [];
